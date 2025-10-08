@@ -294,7 +294,7 @@ def main() -> None:
 
     fitness = fitness_function(tracker.history["xpos"][0])
     msg = f"Fitness of generated robot: {fitness}"
-    # console.log(msg)
+    console.log(msg)
 
 
 if __name__ == "__main__":
