@@ -17,6 +17,8 @@ from mujoco import viewer
 from networkx import DiGraph
 
 # Ariel imports
+import os
+from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import save_graph_as_json
 from ariel.body_phenotypes.robogen_lite.constructor import construct_mjspec_from_graph
 from ariel.body_phenotypes.robogen_lite.decoders.hi_prob_decoding import HighProbabilityDecoder
 from ariel.ec.genotypes.nde import NeuralDevelopmentalEncoding
@@ -40,10 +42,10 @@ TARGET_POSITION = [5, 0, 0.5]
 
 # Evolution parameters
 BODY_GENOTYPE_SIZE = 64 * 3
-POP_SIZE_BODY = 10      # CMA-ES population for body evolution
+POP_SIZE_BODY = 20      # CMA-ES population for body evolution
 POP_SIZE_CPG = 10       # CMA-ES population for CPG evolution
-GENERATIONS_BODY = 2          # outer loop generations
-GENERATIONS_CPG_INNER = 3     # inner loop generations
+GENERATIONS_BODY = 150          # outer loop generations
+GENERATIONS_CPG_INNER = 10     # inner loop generations
 INITIAL_BODY_RANGE = 1.0
 STDEV_INIT = 0.7
 
@@ -51,19 +53,27 @@ STDEV_INIT = 0.7
 CPG_BOUNDS = (-5.0, 5.0)
 
 # Durations
-INNER_DURATION = 10       # during fitness eval
-OUTER_DURATION = 15       # during final body evolution eval
-VISUALIZE_DURATION = 30   # when launching viewer
+INNER_DURATION = 15       # during fitness eval
+OUTER_DURATION = 20       # during final body evolution eval
+VISUALIZE_DURATION = 15   # when launching viewer
 FILTER_DURATION = 3       # short random test for "learner" filtering
 
 # Threshold for learner check (XY-plane)
-DISPLACEMENT_THRESHOLD = 0.2  # meters
+DISPLACEMENT_THRESHOLD = 0.15  # meters
 
 # Paths
 SCRIPT_NAME = __file__.split("/")[-1][:-3]
 CWD = Path.cwd()
 DATA = CWD / "__data__" / SCRIPT_NAME
 DATA.mkdir(exist_ok=True)
+
+json_filename = (
+    f"best_robot_body_P{POP_SIZE_BODY}_C{POP_SIZE_CPG}"
+    f"_G{GENERATIONS_BODY}_CG{GENERATIONS_CPG_INNER}.json"
+)
+custom_json_path = Path(r"D:\Evolutionary Computing GitClone Ariel\ariel\MyWork\Nested_Evolution") / json_filename
+custom_json_path.parent.mkdir(parents=True, exist_ok=True)
+
 
 # Type Aliases
 ViewerTypes = Literal["launcher", "video", "simple", "no_control", "frame"]
@@ -117,11 +127,8 @@ def experiment(robot_graph: DiGraph, cpg_params: np.ndarray, duration: int = 15,
 
     model = world.spec.compile()
     data = mj.MjData(model)
-    mj.mj_resetData(model, data)
 
-    # Reset initial state
-    data.qpos[:] = 0
-    data.qpos[2] = spawn_pos[2]
+    mj.mj_resetData(model, data)
     data.qvel[:] = 0
     data.qacc[:] = 0
     mj.mj_forward(model, data)
@@ -164,11 +171,8 @@ def is_learner(robot_graph: DiGraph) -> bool:
 
     model = world.spec.compile()
     data = mj.MjData(model)
-    mj.mj_resetData(model, data)
 
-    # Reset initial state
-    data.qpos[:] = 0
-    data.qpos[2] = spawn_pos[2]
+    mj.mj_resetData(model, data)
     data.qvel[:] = 0
     data.qacc[:] = 0
     mj.mj_forward(model, data)
@@ -221,14 +225,19 @@ def evaluate_body(body_vector: torch.Tensor) -> float:
         p_matrices[0], p_matrices[1], p_matrices[2]
     )
 
-    # Check learner filter (uses XY displacement)
+    # Check learner filter
     if not is_learner(robot_graph):
-        return -1e6  # mark as very poor so CMA-ES discards it
+        return -1e6  # very poor fitness
 
-    # Inner CPG evolution
-    num_actuators = NUM_OF_MODULES
+    # 🔹 Build model once here to get actuator count
+    fresh_core = construct_mjspec_from_graph(robot_graph)
+    world = OlympicArena()
+    world.spawn(fresh_core.spec, spawn_position=np.array(SPAWN_POS))
+    model = world.spec.compile()
+    num_actuators = model.nu
     cpg_genotype_size = num_actuators * 3
 
+    # Inner CPG evolution
     def evaluate_cpg(cpg_tensor: torch.Tensor) -> float:
         cpg_params = np.array(cpg_tensor, dtype=np.float32)
         return experiment(robot_graph, cpg_params, duration=INNER_DURATION, mode="simple")
@@ -269,11 +278,14 @@ def main():
         fitness_history_body.append(best_fit)
         print(f"Body Gen {gen} | Best fitness: {best_fit:.4f}")
 
+    fitness_file_path = custom_json_path.with_suffix(".fitness.txt")
+    np.savetxt(fitness_file_path, fitness_history_body)
+
     # Print final best fitness
     final_best_fit = searcher_body.status["best_eval"]
     print(f"\nFinal best fitness after {GENERATIONS_BODY} generations: {final_best_fit:.4f}")
 
-    # Decode best body
+        # Decode best body
     best_body_vector = np.array(searcher_body.status["best"].values, dtype=np.float32)
     type_p_genes = best_body_vector[:64]
     conn_p_genes = best_body_vector[64:128]
@@ -286,9 +298,19 @@ def main():
     robot_graph: DiGraph = hpd.probability_matrices_to_graph(
         p_matrices[0], p_matrices[1], p_matrices[2]
     )
-
+    
+    try:
+        save_graph_as_json(robot_graph, custom_json_path)
+        print(f"[INFO] Saved best robot JSON to {custom_json_path}")
+    except Exception as e:
+        print(f"[WARN] Could not save robot graph JSON: {e}")
+       
     # Train final CPG for visualization
-    num_actuators = NUM_OF_MODULES
+    fresh_core = construct_mjspec_from_graph(robot_graph)
+    world = OlympicArena()
+    world.spawn(fresh_core.spec, spawn_position=np.array(SPAWN_POS))
+    model = world.spec.compile()
+    num_actuators = model.nu
     cpg_genotype_size = num_actuators * 3
 
     def evaluate_cpg(cpg_tensor: torch.Tensor) -> float:
