@@ -43,9 +43,9 @@ TARGET_POSITION = [5, 0, 0.5]
 
 # Evolution parameters
 BODY_GENOTYPE_SIZE = 64 * 3
-POP_SIZE_BODY = 50     # CMA-ES population for body evolution
+POP_SIZE_BODY = 3     # CMA-ES population for body evolution
 POP_SIZE_CPG = 15       # CMA-ES population for CPG evolution
-GENERATIONS_BODY = 1          # outer loop generations
+GENERATIONS_BODY = 2          # outer loop generations
 GENERATIONS_CPG_INNER = 20     # inner loop generations
 INITIAL_BODY_RANGE = 1.0
 STDEV_INIT = 0.7
@@ -60,7 +60,7 @@ VISUALIZE_DURATION = 15   # when launching viewer
 FILTER_DURATION = 3       # short random test for "learner" filtering
 
 # Threshold for learner check (XY-plane)
-DISPLACEMENT_THRESHOLD = 0.15  # meters
+DISPLACEMENT_THRESHOLD = 0.06  # meters
 
 # Paths
 SCRIPT_NAME = __file__.split("/")[-1][:-3]
@@ -202,7 +202,7 @@ def is_learner(robot_graph: DiGraph) -> bool:
 # =======================
 # Body + CPG Evaluation
 # =======================
-def evaluate_body(body_vector: torch.Tensor) -> float:
+def evaluate_body(body_vector: torch.Tensor, record_all_cpg_fitness=False) -> float:
     start_body = time.time()
 
     # Convert vector -> genotype
@@ -220,7 +220,6 @@ def evaluate_body(body_vector: torch.Tensor) -> float:
         p_matrices[0], p_matrices[1], p_matrices[2]
     )
 
-
     if not is_learner(robot_graph):
         print("[INFO] Skipping non-learner body")
         return -1e6
@@ -233,9 +232,14 @@ def evaluate_body(body_vector: torch.Tensor) -> float:
     num_actuators = model.nu
     cpg_genotype_size = num_actuators * 3
 
+    cpg_fitness_list = []  # <-- store all CPG fitness if requested
+
     def evaluate_cpg(cpg_tensor: torch.Tensor) -> float:
         cpg_params = np.array(cpg_tensor, dtype=np.float32)
-        return experiment(robot_graph, cpg_params, duration=INNER_DURATION, mode="simple")
+        fit = experiment(robot_graph, cpg_params, duration=INNER_DURATION, mode="simple")
+        if record_all_cpg_fitness:
+            cpg_fitness_list.append(fit)
+        return fit
 
     problem_cpg = Problem(
         "max",
@@ -256,7 +260,10 @@ def evaluate_body(body_vector: torch.Tensor) -> float:
     body_elapsed = time.time() - start_body
     print(f"   [Body Eval Done] Runtime for this body: {body_elapsed:.2f}s")
 
-    return searcher_cpg.status["best_eval"]
+    if record_all_cpg_fitness:
+        return cpg_fitness_list
+    else:
+        return searcher_cpg.status["best_eval"]
 
 
 # =======================
@@ -267,13 +274,15 @@ def main():
 
     problem_body = Problem(
         "max",
-        evaluate_body,
+        lambda x: evaluate_body(x, record_all_cpg_fitness=False),
         solution_length=BODY_GENOTYPE_SIZE,
         dtype=torch.float32,
         initial_bounds=(-INITIAL_BODY_RANGE, INITIAL_BODY_RANGE),
     )
     searcher_body = CMAES(problem_body, popsize=POP_SIZE_BODY, stdev_init=STDEV_INIT)
-    fitness_history_body = []
+
+    # Track all fitness for plotting: [generation][candidate]
+    fitness_history_all = []
 
     # Track the best valid robot
     global_best_fit = -np.inf
@@ -285,80 +294,28 @@ def main():
 
         searcher_body.step()
 
-        # Check each candidate in the current CMA-ES population
+        current_gen_fitness = []
+
+        # Evaluate all candidates
         for candidate in searcher_body.population:
             fitness = evaluate_body(candidate)
+            current_gen_fitness.append(fitness)
             if fitness > global_best_fit:
                 global_best_fit = fitness
                 global_best_vector = candidate
 
-        fitness_history_body.append(global_best_fit)
+        fitness_history_all.append(current_gen_fitness)
 
         gen_elapsed = time.time() - gen_start
         print(f"   [Body Gen {gen+1}] Best valid fitness so far: {global_best_fit:.4f} | Runtime: {gen_elapsed:.2f}s")
 
     # Save fitness history
-    fitness_file_path = custom_json_path.with_suffix(".fitness.txt")
-    np.savetxt(fitness_file_path, fitness_history_body)
-    print(f"\nFinal best valid fitness: {global_best_fit:.4f}")
-
-    # Decode the best valid body
-    best_body_vector = np.array(global_best_vector, dtype=np.float32)
-    type_p_genes = best_body_vector[:64]
-    conn_p_genes = best_body_vector[64:128]
-    rot_p_genes = best_body_vector[128:]
-    genotype = [type_p_genes, conn_p_genes, rot_p_genes]
-
-    nde = NeuralDevelopmentalEncoding(number_of_modules=NUM_OF_MODULES)
-    p_matrices = nde.forward(genotype)
-    hpd = HighProbabilityDecoder(NUM_OF_MODULES)
-    robot_graph: DiGraph = hpd.probability_matrices_to_graph(
-        p_matrices[0], p_matrices[1], p_matrices[2]
-    )
-
-    try:
-        save_graph_as_json(robot_graph, custom_json_path)
-        print(f"[INFO] Saved best robot JSON to {custom_json_path}")
-    except Exception as e:
-        print(f"[WARN] Could not save robot graph JSON: {e}")
-
-    # Construct and spawn the best robot
-    fresh_core = construct_mjspec_from_graph(robot_graph)
-    world = OlympicArena()
-    spawn_pos = np.array(SPAWN_POS)
-    world.spawn(fresh_core.spec, position=spawn_pos)
-    model = world.spec.compile()
-    num_actuators = model.nu
-    cpg_genotype_size = num_actuators * 3
-
-    # Evolve CPG for the best robot
-    def evaluate_cpg(cpg_tensor: torch.Tensor) -> float:
-        cpg_params = np.array(cpg_tensor, dtype=np.float32)
-        return experiment(robot_graph, cpg_params, duration=OUTER_DURATION, mode="simple")
-
-    problem_cpg = Problem(
-        "max",
-        evaluate_cpg,
-        solution_length=cpg_genotype_size,
-        dtype=torch.float32,
-        initial_bounds=CPG_BOUNDS,
-    )
-    searcher_cpg = CMAES(problem_cpg, popsize=POP_SIZE_CPG, stdev_init=STDEV_INIT)
-    for inner_gen in range(GENERATIONS_CPG_INNER):
-        inner_start = time.time()
-        searcher_cpg.step()
-        elapsed_inner = time.time() - inner_start
-        best_inner_fit = searcher_cpg.status["best_eval"]
-        print(f"   [Final CPG Gen {inner_gen+1}/{GENERATIONS_CPG_INNER}] Best fitness: {best_inner_fit:.4f} | Runtime: {elapsed_inner:.2f}s")
-
-    best_cpg = np.array(searcher_cpg.status["best"].values, dtype=np.float32)
-
-    print("\nLaunching MuJoCo visualizer for best robot...")
-    experiment(robot_graph, best_cpg, duration=VISUALIZE_DURATION, mode="launcher")
+    fitness_file_path = custom_json_path.with_suffix(".fitness_all.npy")
+    np.save(fitness_file_path, np.array(fitness_history_all))
+    print(f"[INFO] Saved all fitness values per generation to {fitness_file_path}")
 
     total_elapsed = time.time() - total_start
     print(f"\n[INFO] Total runtime: {total_elapsed:.2f}s")
-
 
 
 if __name__ == "__main__":
