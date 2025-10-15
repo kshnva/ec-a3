@@ -12,7 +12,7 @@ After the best morphology is found, the **controller is further evolved** indepe
 - Visualization of fitness progress and structural trends  
 
 ### Tech Stack
-**Python**, **NumPy**, **SciPy**, **Matplotlib**, **ARIEL (MuJoCo)**
+**Python**, **NumPy**, **SciPy**, **Matplotlib**, **ARIEL (MuJoCo)**, **Evotorch**
 
 ### Results
 Evolved robots developed stable, modular morphologies and rhythmic gaits.  
