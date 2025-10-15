@@ -71,7 +71,7 @@ json_filename = (
     f"best_robot_body_P{POP_SIZE_BODY}_C{POP_SIZE_CPG}"
     f"_G{GENERATIONS_BODY}_CG{GENERATIONS_CPG_INNER}.json"
 )
-custom_json_path = Path(r"D:\Evolutionary Computing GitClone Ariel\ariel\MyWork\Nested_Evolution") / json_filename
+custom_json_path = Path(r"/Users/shaniasinha/Documents/University/ec-a3/__data__/Nested_Evolution") / json_filename
 custom_json_path.parent.mkdir(parents=True, exist_ok=True)
 
 
@@ -123,7 +123,7 @@ def experiment(robot_graph: DiGraph, cpg_params: np.ndarray, duration: int = 15,
     # Build robot from graph
     fresh_core = construct_mjspec_from_graph(robot_graph)
     spawn_pos = np.array(SPAWN_POS)
-    world.spawn(fresh_core.spec, spawn_position=spawn_pos)
+    world.spawn(fresh_core.spec, position=spawn_pos)
 
     model = world.spec.compile()
     data = mj.MjData(model)
@@ -167,7 +167,7 @@ def is_learner(robot_graph: DiGraph) -> bool:
 
     fresh_core = construct_mjspec_from_graph(robot_graph)
     spawn_pos = np.array(SPAWN_POS)
-    world.spawn(fresh_core.spec, spawn_position=spawn_pos)
+    world.spawn(fresh_core.spec, position=spawn_pos)
 
     model = world.spec.compile()
     data = mj.MjData(model)
@@ -232,7 +232,7 @@ def evaluate_body(body_vector: torch.Tensor) -> float:
     # 🔹 Build model once here to get actuator count
     fresh_core = construct_mjspec_from_graph(robot_graph)
     world = OlympicArena()
-    world.spawn(fresh_core.spec, spawn_position=np.array(SPAWN_POS))
+    world.spawn(fresh_core.spec, position=np.array(SPAWN_POS))
     model = world.spec.compile()
     num_actuators = model.nu
     cpg_genotype_size = num_actuators * 3
@@ -308,7 +308,7 @@ def main():
     # Train final CPG for visualization
     fresh_core = construct_mjspec_from_graph(robot_graph)
     world = OlympicArena()
-    world.spawn(fresh_core.spec, spawn_position=np.array(SPAWN_POS))
+    world.spawn(fresh_core.spec, position=np.array(SPAWN_POS))
     model = world.spec.compile()
     num_actuators = model.nu
     cpg_genotype_size = num_actuators * 3

@@ -34,7 +34,8 @@ console = Console()
 
 # Path to your JSON
 JSON_PATH = Path(
-    r"D:\Evolutionary Computing GitClone Ariel\ariel\MyWork\Nested_Evolution\best_robot_body_P20_C10_G150_CG10.json"
+    # r"D:\Evolutionary Computing GitClone Ariel\ariel\MyWork\Nested_Evolution\best_robot_body_P20_C10_G150_CG10.json"
+    "/Users/shaniasinha/Documents/University/ec-a3/__data__/A3_template/robot_graph.json"
 )
 DATA = JSON_PATH.parent
 SCRIPT_NAME = JSON_PATH.stem

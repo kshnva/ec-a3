@@ -1,0 +1,36 @@
+Wed Oct 15 09:00:03 2025
+WARNING: Insufficient arena memory for the number of constraints generated. Increase arena memory allocation above 1751M bytes. Time = 0.0000.
+
+Wed Oct 15 09:00:05 2025
+WARNING: Pre-allocated visual geom buffer is full. Increase maxgeom above 10000. Time = 0.0020.
+
+Wed Oct 15 09:00:47 2025
+WARNING: Insufficient arena memory for the number of constraints generated. Increase arena memory allocation above 1751M bytes. Time = 0.0000.
+
+Wed Oct 15 09:00:49 2025
+WARNING: Pre-allocated visual geom buffer is full. Increase maxgeom above 10000. Time = 0.0020.
+
+Wed Oct 15 09:01:31 2025
+WARNING: Insufficient arena memory for the number of constraints generated. Increase arena memory allocation above 1751M bytes. Time = 0.0000.
+
+Wed Oct 15 09:01:33 2025
+WARNING: Pre-allocated visual geom buffer is full. Increase maxgeom above 10000. Time = 0.0020.
+
+Wed Oct 15 09:07:30 2025
+WARNING: Insufficient arena memory for the number of constraints generated. Increase arena memory allocation above 1751M bytes. Time = 0.0000.
+
+Wed Oct 15 09:07:32 2025
+WARNING: Pre-allocated visual geom buffer is full. Increase maxgeom above 10000. Time = 0.0020.
+
+Wed Oct 15 09:08:14 2025
+WARNING: Insufficient arena memory for the number of constraints generated. Increase arena memory allocation above 1751M bytes. Time = 0.0000.
+
+Wed Oct 15 09:08:16 2025
+WARNING: Pre-allocated visual geom buffer is full. Increase maxgeom above 10000. Time = 0.0020.
+
+Wed Oct 15 09:08:59 2025
+WARNING: Insufficient arena memory for the number of constraints generated. Increase arena memory allocation above 1751M bytes. Time = 0.0000.
+
+Wed Oct 15 09:09:01 2025
+WARNING: Pre-allocated visual geom buffer is full. Increase maxgeom above 10000. Time = 0.0020.
+
