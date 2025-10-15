@@ -1,0 +1,8 @@
+{
+  "algorithm": "CMAES",
+  "best_fitness": -57.628662109375,
+  "final_fitness": -96.69959643803497,
+  "generations": 150,
+  "population_size": 24,
+  "note": "Fallback random solution due to evaluation error"
+}

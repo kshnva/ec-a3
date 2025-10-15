@@ -133,7 +133,8 @@ def experiment(
 
     # Spawn robot in the world
     # Check docstring for spawn conditions
-    world.spawn(robot.spec, spawn_position=[0, 0, 0.1])
+    # world.spawn(robot.spec, spawn_position=[0, 0, 0.1])
+    world.spawn(robot.spec, position=[0, 0, 0.1])
 
     # Generate the model and data
     # These are standard parts of the simulation USE THEM AS IS, DO NOT CHANGE
